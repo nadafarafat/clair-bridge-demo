@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parable &times; CLAIR — Integration Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-deep:#0B1F33; --navy:#173A5E; --teal:#0F766E; --teal-bg:#E1F5EE;
+    --clair-bg:#0d0d0f; --clair-accent:#E2543A; --clair-accent-bg:#3a2320;
+    --paper:#F5F6FB; --card:#FFFFFF; --border:#E1E4F0; --slate:#333A4E; --mute:#6B7280;
+    --green:#1F7A5C; --green-bg:#E6F4EE; --amber:#9A6A16; --amber-bg:#FBF1DF;
+    --red:#9B1C1C; --red-bg:#FBEAEA; --slate-bg:#EEF0F4; --slate-tx:#475066;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;background:var(--paper);color:var(--slate);font-size:14px;line-height:1.5;}
+  .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;}
+
+  .topbar{background:var(--navy-deep);color:#fff;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .topbar .brand{font-weight:600;font-size:15px;}
+  .topbar .brand span{color:#8FE0BD;}
+  .demo-tag{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#D8DEF3;padding:5px 10px;border-radius:6px;font-size:11.5px;}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 18px 40px;}
+
+  .account-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+  .acct-pill{font-size:12.5px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-weight:500;}
+  .acct-pill.active{border-color:var(--teal);background:var(--teal-bg);color:var(--teal);}
+  .acct-pill .st{font-size:10.5px;margin-left:6px;padding:1px 6px;border-radius:4px;font-weight:600;}
+
+  .stage{display:grid;grid-template-columns:1.1fr 0.9fr 1.1fr;gap:14px;align-items:stretch;}
+  @media (max-width:900px){.stage{grid-template-columns:1fr;}}
+
+  .col{border-radius:12px;padding:16px;display:flex;flex-direction:column;min-height:360px;}
+  .col-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:12px;}
+
+  .col-clair{background:var(--clair-bg);color:#EDEDEF;}
+  .col-clair .col-label{color:var(--clair-accent);}
+  .col-bridge{background:var(--card);border:1px solid var(--border);}
+  .col-bridge .col-label{color:var(--mute);}
+  .col-parable{background:var(--navy-deep);color:#EDEFFB;}
+  .col-parable .col-label{color:#7FD9C4;}
+
+  .chat-bubble{border-radius:10px;padding:11px 13px;margin-bottom:10px;font-size:13px;line-height:1.5;max-width:100%;}
+  .chat-user{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);}
+  .chat-clair{background:var(--clair-accent-bg);border:1px solid rgba(226,84,58,.4);}
+  .chat-empty{color:#8B8B90;font-size:12.5px;padding:8px 0;}
+  .cite-chip{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-family:'IBM Plex Mono',monospace;background:rgba(226,84,58,.18);color:#F3A491;border:1px solid rgba(226,84,58,.4);padding:2px 7px;border-radius:5px;cursor:pointer;margin:4px 4px 0 0;}
+  .cite-chip:hover{background:rgba(226,84,58,.3);}
+
+  .ask-btn{margin-top:auto;background:var(--clair-accent);color:#fff;border:none;border-radius:8px;padding:10px 14px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .ask-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .ask-btn:hover:not(:disabled){opacity:.9;}
+  .q-preview{font-size:12.5px;color:#B7B7BC;margin-bottom:10px;line-height:1.5;font-style:italic;}
+
+  .bridge-steps{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+  .b-step{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mute);}
+  .b-step.done{color:var(--slate);}
+  .b-step.active{color:var(--teal);font-weight:600;}
+  .b-dot{width:8px;height:8px;border-radius:50%;background:#D8DCE6;flex-shrink:0;}
+  .b-step.done .b-dot{background:var(--teal);}
+  .b-step.active .b-dot{background:var(--teal);animation:pulse 1s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(15,118,110,.5);}70%{box-shadow:0 0 0 6px rgba(15,118,110,0);}100%{box-shadow:0 0 0 0 rgba(15,118,110,0);}}
+
+  .endpoint-line{font-size:11.5px;margin-bottom:10px;}
+  .endpoint-line .m{background:var(--navy-deep);color:#fff;padding:2px 6px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;margin-right:6px;}
+
+  .payload{background:#F7F8FB;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:170px;overflow-y:auto;margin-bottom:10px;display:none;}
+  .payload.show{display:block;}
+  .payload-label{font-size:10.5px;color:var(--mute);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+
+  .source-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;padding:5px 9px;border-radius:6px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:#9FADD6;margin:0 6px 6px 0;transition:all .25s;}
+  .source-chip.lit{background:rgba(127,217,196,.15);border-color:rgba(127,217,196,.4);color:#EDEFFB;}
+  .source-chip.skip{opacity:.35;text-decoration:line-through;}
+  .src-dot{width:6px;height:6px;border-radius:50%;background:#5A6AA0;}
+  .source-chip.lit .src-dot{background:#7FD9C4;}
+
+  .rule-note{font-size:12px;color:#9FADD6;margin:10px 0;display:none;}
+  .rule-note.show{display:block;}
+
+  .verdict-box{margin-top:auto;border-radius:10px;padding:14px;display:none;}
+  .verdict-box.show{display:block;}
+  .verdict-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;opacity:.8;}
+  .verdict-state{font-size:20px;font-weight:700;margin-bottom:4px;}
+  .verdict-meta{font-size:11.5px;opacity:.85;}
+  .v-EXCEPTION{background:rgba(226,84,58,.18);border:1px solid rgba(226,84,58,.4);}
+  .v-VERIFIED{background:rgba(127,217,196,.15);border:1px solid rgba(127,217,196,.4);}
+  .v-UNKNOWN{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);}
+  .v-STALE{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);}
+
+  .evidence-panel{margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;display:none;}
+  .evidence-panel.show{display:block;}
+  .ev-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .ev-id{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--teal);}
+  .ev-close{background:none;border:none;color:var(--mute);cursor:pointer;font-size:16px;}
+  .ev-title{font-weight:600;font-size:14px;margin-bottom:8px;color:var(--navy);}
+  .ev-why{font-size:13px;color:var(--slate);line-height:1.55;margin-bottom:10px;}
+  .ev-chain{font-size:11.5px;color:var(--mute);}
+  .ev-status{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:5px;margin-left:8px;text-transform:uppercase;}
+
+  .controls{margin-top:16px;display:flex;gap:10px;align-items:center;}
+  .reset-btn{font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:7px;border:1px solid var(--border);background:var(--card);cursor:pointer;}
+  .controls .hint{font-size:11.5px;color:var(--mute);}
+
+  footer{text-align:center;font-size:11.5px;color:var(--mute);padding:26px 0 10px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">Parable <span>&times;</span> CLAIR &mdash; Integration Walkthrough</div>
+  <div class="demo-tag">Concept demo &middot; real mocked data from the Parable Verify MVP, simulated wire call</div>
+</div>
+
+<div class="wrap">
+  <div class="account-bar" id="account-bar"></div>
+
+  <div class="stage">
+    <div class="col col-clair">
+      <div class="col-label">CLAIR asks</div>
+      <div id="clair-chat"><div class="chat-empty">Select an account, then ask CLAIR the readiness question.</div></div>
+      <div style="margin-top:auto;">
+        <div class="q-preview" id="q-preview"></div>
+        <button class="ask-btn" id="ask-btn">Ask CLAIR &rarr;</button>
+      </div>
+    </div>
+
+    <div class="col col-bridge">
+      <div class="col-label">The API bridge</div>
+      <div class="endpoint-line"><span class="m">POST</span><span class="mono">/v1/verifications</span></div>
+      <div class="bridge-steps" id="bridge-steps"></div>
+      <div class="payload-label">Request</div>
+      <div class="payload" id="req-payload"></div>
+      <div class="payload-label">Response</div>
+      <div class="payload" id="res-payload"></div>
+    </div>
+
+    <div class="col col-parable">
+      <div class="col-label">Parable verifies</div>
+      <div id="source-chips"></div>
+      <div class="rule-note" id="rule-note">Applying deterministic rules to normalized observations&hellip;</div>
+      <div class="verdict-box" id="verdict-box">
+        <div class="verdict-label">Verification result</div>
+        <div class="verdict-state" id="verdict-state">&mdash;</div>
+        <div class="verdict-meta" id="verdict-meta"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="evidence-panel" id="evidence-panel"></div>
+
+  <div class="controls">
+    <button class="reset-btn" id="reset-btn">Reset</button>
+    <span class="hint">Every request, response, source, and citation below is the real mocked data already in the Parable Verify MVP &mdash; this just choreographs it as a live round trip.</span>
+  </div>
+
+  <footer>Illustrative wire-format demo. CLAIR's actual backend has not confirmed it can make an outbound call mid-session &mdash; see the open questions in the CLAIR integration document.</footer>
+</div>
+
+<script>
+const ACCOUNTS = {
+  northstar: {
+    name: "Northstar Health Systems", status: "EXCEPTION",
+    question: "Does Northstar have unmanaged AI accessing sensitive customer data?",
+    request: {account_id:"acct_northstar",representation_id:"REP-0042",question:"Does Northstar have unmanaged AI accessing sensitive customer data?",as_of:"2026-09-15T17:42:00Z"},
+    response: {verification_id:"VER-8821",status:"EXCEPTION",observed_ai_systems:17,unmanaged_ai_systems:4,sensitive_data_access:2,material_changes:3,coverage:0.94,freshness_minutes:124,evidence_refs:["EV-1042","EV-1047","EV-1051"]},
+    narrative: "Parable found evidence inconsistent with the applicant's representation. Two unmanaged AI integrations currently have access to sensitive customer-data environments. One associated service identity exceeds its approved privilege baseline. Broker follow-up is recommended before bind.",
+    refs: ["EV-1042","EV-1047","EV-1051"],
+    sources: [["Microsoft Entra ID",1],["AWS CloudTrail",1],["AI Registry",1],["BigID",1],["ServiceNow GRC",1]],
+  },
+  alder: {
+    name: "Alder BioWorks", status: "VERIFIED",
+    question: "Are Alder's AI systems with research-data access registered and within approved scope?",
+    request: {account_id:"acct_alder",representation_id:"REP-0037",question:"Are Alder's AI systems with research-data access registered and within approved scope?",as_of:"2026-09-15T14:55:00Z"},
+    response: {verification_id:"VER-8815",status:"VERIFIED",observed_ai_systems:9,unmanaged_ai_systems:0,sensitive_data_access:0,material_changes:0,coverage:0.98,freshness_minutes:305,evidence_refs:["EV-2036","EV-2030","EV-2023"]},
+    narrative: "Parable found evidence consistent with the applicant's representation. All nine observed AI systems match approved registry records, no service identity exceeds its approved privilege baseline, and no unapproved access to research or personal data was observed. No follow-up is indicated by the evidence.",
+    refs: ["EV-2036","EV-2030","EV-2023"],
+    sources: [["Microsoft Entra ID",1],["Google Cloud Audit",1],["AI Registry",1],["BigID",1],["ServiceNow GRC",1]],
+  },
+  summitpay: {
+    name: "SummitPay Technologies", status: "UNKNOWN",
+    question: "Do SummitPay's AI systems that touch cardholder data sit inside a governance program?",
+    request: {account_id:"acct_summitpay",representation_id:"REP-0051",question:"Do SummitPay's AI systems that touch cardholder data sit inside a governance program?",as_of:"2026-09-15T11:50:00Z"},
+    response: {verification_id:"VER-8809",status:"UNKNOWN",observed_ai_systems:12,unmanaged_ai_systems:0,unobservable_environments:1,sensitive_data_access:null,material_changes:1,coverage:0.61,coverage_threshold:0.85,freshness_minutes:480,evidence_refs:["EV-3045","EV-3038","EV-3031"]},
+    narrative: "Parable could not reach a conclusion on this representation. Twelve AI systems were observed and all twelve match registry records, but the environment acquired with Cardinal Systems is not connected and no data-classification source is available, so cardholder-data access cannot be confirmed. Nothing observed conflicts with the representation. The gap is in evidence coverage, not in the applicant's response.",
+    refs: ["EV-3045","EV-3038","EV-3031"],
+    sources: [["Microsoft Entra ID",1],["Azure Activity Log",1],["AI Registry",1],["AWS CloudTrail",0],["Data classification",0]],
+  },
+  luma: {
+    name: "Luma Logistics", status: "STALE",
+    question: "Do Luma's routing systems access customer contract or payment data?",
+    request: {account_id:"acct_luma",representation_id:"REP-0019",question:"Do Luma's routing systems access customer contract or payment data?",as_of:"2026-09-15T17:42:00Z"},
+    response: {verification_id:"VER-8604",status:"STALE",last_conclusion:"VERIFIED",last_conclusion_at:"2026-09-04T13:15:00Z",freshness_minutes:15867,freshness_threshold_minutes:10080,coverage_at_last_run:0.88,connector_state:"paused",evidence_refs:["EV-4021","EV-4039"]},
+    narrative: "Parable cannot answer this as of today. The most recent completed verification, from Sep 4, found no evidence that routing systems accessed contract or payment data. That observation is now 11 days old against a 7-day freshness threshold, and collection has been paused since. Re-verification is required before the evidence can be relied on.",
+    refs: ["EV-4021","EV-4039"],
+    sources: [["Microsoft Entra ID",1],["AWS CloudTrail",1],["AI Registry",1],["ServiceNow GRC",1],["Data classification",0]],
+  },
+};
+
+const EVIDENCE = {
+  "EV-1042": {title:"Observed AI integrations with no approved registry record", status:"EXCEPTION", why:"Seventeen AI systems were observed across Northstar's tenant and cloud accounts. Four have no corresponding record in the approved AI registry. One of the four, AtlasGPT Connector, was first observed after the insurance submission was filed.", chain:"AI Registry \u00B7 Microsoft Entra ID"},
+  "EV-1047": {title:"Unmanaged AI integration accessing customer-data warehouse", status:"EXCEPTION", why:"AtlasGPT Connector is not present in Northstar's approved AI registry. Its service identity currently has read access to the production customer warehouse, including PII and PHI datasets. The access grant was created after the insurance submission.", chain:"Microsoft Entra ID \u00B7 AWS CloudTrail \u00B7 AI inventory \u00B7 BigID"},
+  "EV-1051": {title:"Service identity privilege exceeds approved baseline", status:"EXCEPTION", why:"The service identity svc-atlas-prod holds the DataWarehouseReader role, which exceeds Northstar's approved privilege baseline for AI service identities. The broader role was granted after the insurance submission and has been used since.", chain:"Microsoft Entra ID \u00B7 AWS CloudTrail"},
+  "EV-2036": {title:"All observed AI systems match approved registry records", status:"VERIFIED", why:"Nine AI systems were observed across Alder's tenant and cloud projects. Each matched an active record in the approved AI registry on exact application ID.", chain:"AI Registry \u00B7 Microsoft Entra ID"},
+  "EV-2030": {title:"No non-human identity exceeds its approved privilege baseline", status:"VERIFIED", why:"Seven non-human identities are associated with Alder's registered AI systems. Each identity's observed role set is contained within the approved baseline policy.", chain:"Microsoft Entra ID \u00B7 Google Cloud Audit"},
+  "EV-2023": {title:"No AI system observed reading sensitive data outside approved scope", status:"VERIFIED", why:"BigID classified 24 sensitive datasets across Alder's research and corporate stores. Six were read by registered AI systems, and every read matched the purpose recorded in that system's registry entry.", chain:"BigID \u00B7 Google Cloud Audit \u00B7 AI Registry"},
+  "EV-3045": {title:"Acquired cloud environment is outside current evidence coverage", status:"UNKNOWN", why:"SummitPay acquired Cardinal Systems in July 2026. Cardinal's AWS organization has not been connected to Parable, so no observation exists for the AI systems that operate there. Absence of observation is not evidence of an unmanaged system.", chain:"AI Registry"},
+  "EV-3038": {title:"Cardholder-data access cannot be confirmed from available sources", status:"UNKNOWN", why:"No data-classification source is connected for SummitPay. Azure Activity Log records thousands of dataset reads, but without classification Parable cannot determine which datasets contain cardholder or merchant data.", chain:"Azure Activity Log"},
+  "EV-3031": {title:"No current AI-risk assessment for three third-party AI vendors", status:"UNKNOWN", why:"Six vendors are flagged as AI service providers. Three have a current assessment reference; three have none. This is an evidence gap rather than a confirmed control failure.", chain:"AI Registry"},
+  "EV-4021": {title:"Routing systems observed without contract or payment data access", status:"STALE", why:"At the last completed observation, neither routing system held or exercised access to the billing contract or payment stores. That observation is 11 days old against a 7-day freshness threshold.", chain:"AWS CloudTrail \u00B7 Microsoft Entra ID"},
+  "EV-4039": {title:"Change record is complete only to Sep 4", status:"STALE", why:"Two changes were recorded before collection paused on Sep 4, both approved. The 11 days since are unmonitored, so the absence of further recorded changes is not evidence that nothing changed.", chain:"Microsoft Entra ID \u00B7 AWS CloudTrail"},
+};
+
+let activeId = "northstar";
+let running = false;
+
+function el(id){ return document.getElementById(id); }
+
+function renderAccountBar(){
+  const bar = el("account-bar");
+  bar.innerHTML = "";
+  Object.entries(ACCOUNTS).forEach(([id, a]) => {
+    const b = document.createElement("button");
+    b.className = "acct-pill" + (id === activeId ? " active" : "");
+    const stColors = {EXCEPTION:["#FBEAEA","#9B1C1C"],VERIFIED:["#E6F4EE","#1F7A5C"],UNKNOWN:["#EEF0F4","#475066"],STALE:["#EEF0F4","#475066"]};
+    const [bg,fg] = stColors[a.status];
+    b.innerHTML = a.name + ` <span class="st" style="background:${bg};color:${fg}">${a.status}</span>`;
+    b.onclick = () => { if(!running){ activeId = id; resetFlow(); } };
+    bar.appendChild(b);
+  });
+}
+
+function resetFlow(){
+  running = false;
+  renderAccountBar();
+  const a = ACCOUNTS[activeId];
+  el("clair-chat").innerHTML = '<div class="chat-empty">Select an account, then ask CLAIR the readiness question.</div>';
+  el("q-preview").textContent = "\u201C" + a.question + "\u201D";
+  el("ask-btn").disabled = false;
+  el("bridge-steps").innerHTML = ["Sending request","Verifying evidence","Response received"].map((s,i)=>
+    `<div class="b-step" data-i="${i}"><span class="b-dot"></span>${s}</div>`).join("");
+  el("req-payload").className = "payload"; el("req-payload").textContent = "";
+  el("res-payload").className = "payload"; el("res-payload").textContent = "";
+  el("source-chips").innerHTML = a.sources.map(([name,ok]) =>
+    `<span class="source-chip${ok?"":" skip"}"><span class="src-dot"></span>${name}</span>`).join("");
+  el("rule-note").className = "rule-note";
+  el("verdict-box").className = "verdict-box";
+  el("evidence-panel").className = "evidence-panel";
+  el("evidence-panel").innerHTML = "";
+}
+
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+function setStep(i, state){
+  const steps = document.querySelectorAll(".b-step");
+  steps.forEach((s,idx) => {
+    s.classList.remove("active");
+    if (state === "done" && idx <= i) s.classList.add("done");
+    if (state === "active" && idx === i) s.classList.add("active");
+    if (state === "active" && idx < i) s.classList.add("done");
+  });
+}
+
+async function runFlow(){
+  if(running) return;
+  running = true;
+  el("ask-btn").disabled = true;
+  const a = ACCOUNTS[activeId];
+
+  el("clair-chat").innerHTML = `<div class="chat-bubble chat-user">${a.question}</div>`;
+  await sleep(500);
+
+  setStep(0, "active");
+  el("req-payload").className = "payload show";
+  el("req-payload").textContent = JSON.stringify(a.request, null, 2);
+  await sleep(900);
+
+  setStep(1, "active");
+  const chips = document.querySelectorAll("#source-chips .source-chip");
+  for(let i=0;i<chips.length;i++){
+    if(!chips[i].classList.contains("skip")){
+      chips[i].classList.add("lit");
+      await sleep(220);
+    }
+  }
+  el("rule-note").className = "rule-note show";
+  await sleep(900);
+
+  setStep(2, "active");
+  el("res-payload").className = "payload show";
+  el("res-payload").textContent = JSON.stringify(a.response, null, 2);
+  await sleep(500);
+  setStep(2, "done");
+
+  const vb = el("verdict-box");
+  vb.className = "verdict-box show v-" + a.status;
+  el("verdict-state").textContent = a.status;
+  el("verdict-meta").textContent = `${a.response.verification_id} \u00B7 ${Math.round((a.response.coverage||a.response.coverage_at_last_run||0)*100)}% coverage`;
+  await sleep(700);
+
+  const chatEl = el("clair-chat");
+  const bubble = document.createElement("div");
+  bubble.className = "chat-bubble chat-clair";
+  bubble.innerHTML = a.narrative + "<div>" + a.refs.map(id => `<span class="cite-chip" onclick="showEvidence('${id}')">${id}</span>`).join("") + "</div>";
+  chatEl.appendChild(bubble);
+
+  running = false;
+}
+
+function showEvidence(id){
+  const e = EVIDENCE[id];
+  if(!e) return;
+  const stColors = {EXCEPTION:["#FBEAEA","#9B1C1C"],VERIFIED:["#E6F4EE","#1F7A5C"],UNKNOWN:["#EEF0F4","#475066"],STALE:["#EEF0F4","#475066"]};
+  const [bg,fg] = stColors[e.status];
+  const panel = el("evidence-panel");
+  panel.className = "evidence-panel show";
+  panel.innerHTML = `
+    <div class="ev-head">
+      <div><span class="ev-id">${id}</span><span class="ev-status" style="background:${bg};color:${fg}">${e.status}</span></div>
+      <button class="ev-close" onclick="document.getElementById('evidence-panel').className='evidence-panel'">&times;</button>
+    </div>
+    <div class="ev-title">${e.title}</div>
+    <div class="ev-why">${e.why}</div>
+    <div class="ev-chain">Sources: ${e.chain}</div>
+  `;
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+el("ask-btn").addEventListener("click", runFlow);
+el("reset-btn").addEventListener("click", resetFlow);
+
+renderAccountBar();
+resetFlow();
+</script>
+</body>
+</html>
